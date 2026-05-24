@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Python Smart Sync - TUI Engine v2.6 (Final Analytics Snapshot)</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Lucida Console', 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+            box-sizing: border-box;
+        }
+
+        .terminal-window {
+            width: 1000px;
+            background-color: #0C0C0C;
+            border: 1px solid #3c3c3c;
+            border-radius: 6px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background-color: #2d2d2d;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3c3c3c;
+            user-select: none;
+        }
+
+        .terminal-title {
+            font-size: 12px;
+            color: #aaaaaa;
+        }
+
+        .window-controls { display: flex; gap: 8px; }
+        .control-btn { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .btn-close { background-color: #ff5f56; }
+        .btn-min { background-color: #ffbd2e; }
+        .btn-max { background-color: #27c93f; }
+
+        .terminal-body {
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre;
+            color: #CCCCCC;
+        }
+
+        /* Цветовая палитра ANSI-состояний */
+        .c-green  { color: #00FF00; font-weight: bold; }
+        .c-cyan   { color: #00FFFF; font-weight: bold; }
+        .c-yellow { color: #FFFF00; font-weight: bold; }
+        .c-orange { color: #FF8000; font-weight: bold; } /* Оранжевый акцент безопасности */
+        .c-red    { color: #FF3333; font-weight: bold; }
+        .c-purple { color: #E066FF; font-weight: bold; }
+        .c-gray   { color: #555555; }
+        .c-white  { color: #FFFFFF; font-weight: bold; }
+
+        .inverse-green { background-color: #00FF00; color: #000; font-weight: bold; }
+        
+        .blink { animation: blinker 1s linear infinite; }
+        @keyframes blinker { 50% { opacity: 0; } }
+    </style>
+</head>
+<body>
+
+<div class="terminal-window">
+    <div class="terminal-header">
+        <div class="terminal-title">🟢 Administrator: cmd.exe - python sync_agent.py --threads 16 (Отчет сформирован)</div>
+        <div class="window-controls">
+            <span class="control-btn btn-min"></span>
+            <span class="control-btn btn-max"></span>
+            <span class="control-btn btn-close"></span>
+        </div>
+    </div>
+    <div class="terminal-body" id="console"></div>
+</div>
+
+<script>
+    function renderFinalUI() {
+        let out = "";
+        out += "<span class='c-gray'>===========================</span> <span class='c-white'>[ PYTHON SMART SYNC V1.0 ]</span> <span class='c-gray'>===========================</span>\n";
+        out += "<span class='c-white'>Запуск:   </span> <span class='c-gray'>23.05.2026 13:53:04</span>\n";
+        out += "<span class='c-white'>Источник: </span> <span class='c-cyan'>\\\\srv-fs01\\Company_Share</span>\n";
+        out += "<span class='c-white'>Цель:     </span> <span class='c-cyan'>D:\\Local_Backup\\Share_Mirror</span>\n";
+        out += "<span class='c-gray'>------------------------------------------------------------------------------------------</span>\n";
+        out += "<span class='c-white'>[ОБЩИЙ СТАТУС]:</span> <span class='inverse-green'> СИНХРОНИЗАЦИЯ УСПЕШНО ЗАВЕРШЕНА </span>\n";
+        out += `Прогресс: <span class='c-green'>[███████████████████████████████████] 100.0%</span> <span class='c-gray'>(Сессия закрыта корректно)</span>\n`;
+        out += `Объем:    <span class='c-white'>2,450.0 GB</span> / 2,450.0 GB       | Ошибки ввода-вывода:    <span class='c-green'>[ 0 ]</span>\n`;
+        out += `Файлы:    Обработано: <span class='c-green'>84,300</span>         | Пропущено (Ретраи):     <span class='c-orange'>[ 4 ]</span>\n`;
+        out += "<span class='c-gray'>------------------------------------------------------------------------------------------</span>\n";
+        
+        // НОВЫЙ БЛОК: Системная телеметрия и Аудит Безопасности (Вместо пустых воркеров)
+        out += "<span class='c-white'>[ТЕЛЕМЕТРИЯ СЕССИИ И ДИАГНОСТИКА СИСТЕМЫ]</span>:\n\n";
+        out += " <span class='c-white'>Временные метки:</span>  Завершение: <span class='c-cyan'>23.05.2026 16:08:38</span>  │ Общее время работы:  <span class='c-cyan'>02:15:34</span>\n";
+        out += " <span class='c-white'>Файлы журналов:</span>   Лог сессии: <span class='c-yellow'>D:\\Local_Backup\\Logs\\sync_20260523_main.log</span>\n";
+        out += "                   Ошибки ACL: <span class='c-yellow'>D:\\Local_Backup\\Logs\\sync_20260523_errors.log</span>\n";
+        out += " <span class='c-gray'>────────────────────────────────────────────────────────────────────────────────────────</span>\n";
+        out += " <span class='c-white'>Ресурсы узла:</span>     Утилизация CPU:  Средняя: <span class='c-green'>14.8%</span>   │ Пиковая (Max):       <span class='c-yellow'>42.1%</span>\n";
+        out += "                   Занятость RAM:   Средняя: <span class='c-green'>184 MB</span>  │ Пиковая (Max):       <span class='c-yellow'>342 MB</span>\n";
+        out += " <span class='c-gray'>────────────────────────────────────────────────────────────────────────────────────────</span>\n";
+        out += " <span class='c-white'>Целевой диск:</span>     Доступное пространство на целевой машине: <span class='c-green'>1.18 TB</span> (Локальный том D:)\n";
+        out += " <span class='c-white'>Аудит прав ACL:</span>   <span class='c-orange'>ИЗМЕНЕНО И СИНХРОНИЗИРОВАНО ПРАВ ДОСТУПА (ACL): [ 1,842 модификаций ]</span>\n";
+        out += "<span class='c-gray'>------------------------------------------------------------------------------------------</span>\n";
+        
+        // НОВЫЙ БЛОК: Аналитика скоростей (Сеть vs Диск IO)
+        out += "<span class='c-white'>[БЕНЧМАРК ПРОИЗВОДИТЕЛЬНОСТИ ПОДСИСТЕМ (IO SPEED)]</span>:\n\n";
+        out += " <span class='c-white'>Канал связи (Network SMB):</span>  Минимум: <span class='c-red'>42.1 MB/s</span>  │ Средняя: <span class='c-green'>118.4 MB/s</span> │ Максимум: <span class='c-cyan'>124.8 MB/s</span>\n";
+        out += " <span class='c-white'>Локальный диск (Target IO):</span> Минимум: <span class='c-red'>89.4 MB/s</span>  │ Средняя: <span class='c-green'>234.1 MB/s</span> │ Максимум: <span class='c-cyan'>512.0 MB/s</span>\n";
+        out += "<span class='c-gray'>------------------------------------------------------------------------------------------</span>\n";
+        
+        // Финальная таблица итогов (Сохранена как фундаментальный базис)
+        out += "<span class='c-white'>[ФИНАЛЬНАЯ СТАТИСТИКА КАТАЛОГОВ (SUMMARY)]</span>:\n\n";
+        out += "<span class='c-gray'>            │    Всего    │ Скопировано │  Пропущено  │   Ошибки    │   Удалено   │</span>\n";
+        out += "<span class='c-gray'>────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤</span>\n";
+        out += " Директории │       1,420 │          12 │       1,408 │           0 │           3 │\n";
+        out += " Файлы      │      84,300 │      12,405 │      71,895 │           0 │          24 │\n";
+        out += " Байты      │     2.39 TB │   432.50 GB │     1.96 TB │     0.00 KB │     1.12 GB │\n";
+        out += "<span class='c-gray'>────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┘</span>\n\n";
+        
+        out += " <span class='c-white'>Финальный статус:</span> <span class='c-green'>Зеркало обновлено. Ошибок ввода-вывода и деградации прав ACL не обнаружено.</span>\n";
+        out += " <span class='c-gray'>C:\\Users\\Renaks&gt;</span><span class='c-white blink'>█</span>\n";
+
+        document.getElementById("console").innerHTML = out;
+    }
+
+    window.onload = renderFinalUI;
+</script>
+
+</body>
+</html>
