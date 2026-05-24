@@ -42,6 +42,7 @@ if sys.platform == "win32":
         import ntsecuritycon
         import win32api
         import winerror
+        import pywintypes
         WIN32_AVAILABLE = True
     except ImportError:
         pass
@@ -106,12 +107,16 @@ class SyncState:
         self.ram_samples = []
         self.ram_max = 0
 
-        # Бенчмарк I/O (байты, секунды)
+        # Блокировки
+        self.stats_lock = threading.Lock()
         self.io_lock = threading.Lock()
+
+        # Бенчмарк I/O (байты, секунды)
         self.net_read_stats = {"bytes": 0, "time": 0.0, "min": float('inf'), "max": 0.0}
         self.disk_write_stats = {"bytes": 0, "time": 0.0, "min": float('inf'), "max": 0.0}
 
         # Состояние потоков
+        self.threads_count = 0
         self.threads_info = {} # tid -> {status, progress, size, eta, path, spinner_idx}
         self.threads_lock = threading.Lock()
 
@@ -251,18 +256,10 @@ def compare_acl(src_path, dst_path):
     if not WIN32_AVAILABLE:
         return True
 
-    sd_src = get_security_descriptor(src_path)
-    sd_dst = get_security_descriptor(dst_path)
-
-    if sd_src is None or sd_dst is None:
-        return sd_src == sd_dst
-
-    # Сравнение бинарных дескрипторов или их строковых представлений
-    # В pywin32 можно получить SD как байты
     try:
-        sd_src_full = win32security.GetFileSecurity(src_path, win32security.DACL_SECURITY_INFORMATION)
-        sd_dst_full = win32security.GetFileSecurity(dst_path, win32security.DACL_SECURITY_INFORMATION)
-        return sd_src_full.GetSecurityDescriptorBinaryForm() == sd_dst_full.GetSecurityDescriptorBinaryForm()
+        sd_src = win32security.GetFileSecurity(src_path, win32security.DACL_SECURITY_INFORMATION)
+        sd_dst = win32security.GetFileSecurity(dst_path, win32security.DACL_SECURITY_INFORMATION)
+        return sd_src.GetSecurityDescriptorBinaryForm() == sd_dst.GetSecurityDescriptorBinaryForm()
     except Exception:
         return False
 
@@ -316,7 +313,8 @@ def copy_file_with_acl(src, dst, state: SyncState, tid: str):
         if WIN32_AVAILABLE:
             sd = win32security.GetFileSecurity(src, win32security.DACL_SECURITY_INFORMATION)
             win32security.SetFileSecurity(dst, win32security.DACL_SECURITY_INFORMATION, sd)
-            state.acl_applied += 1
+            with state.stats_lock:
+                state.acl_applied += 1
 
         duration = time.time() - start_time
         log_success("[COPY_OK]", duration, size, dst)
@@ -333,7 +331,8 @@ def apply_acl_only(src, dst, state: SyncState):
         if WIN32_AVAILABLE:
             sd = win32security.GetFileSecurity(src, win32security.DACL_SECURITY_INFORMATION)
             win32security.SetFileSecurity(dst, win32security.DACL_SECURITY_INFORMATION, sd)
-            state.acl_applied += 1
+            with state.stats_lock:
+                state.acl_applied += 1
             duration = time.time() - start_time
             log_success("[ACL_ONLY]", duration, 0, dst)
             return True
@@ -351,12 +350,16 @@ def sync_worker(tid, state: SyncState, retries: int, delay: int):
     """
     while not state.stop_event.is_set():
         try:
-            # Ждем задачу с таймаутом, чтобы проверять stop_event
-            task = state.copy_queue.get(timeout=1)
+            # Ждем задачу с небольшим таймаутом
+            task = state.copy_queue.get(timeout=0.5)
         except queue.Empty:
-            if state.enumeration_complete.is_set():
+            if state.enumeration_complete.is_set() and state.copy_queue.empty():
                 break
             continue
+
+        if task is None: # Sentinel
+            state.copy_queue.task_done()
+            break
 
         action, src, dst, size = task
         state.update_thread(tid, status="[COPY]", path=dst, size=size, progress=0)
@@ -367,8 +370,9 @@ def sync_worker(tid, state: SyncState, retries: int, delay: int):
                 if action == "COPY":
                     success = copy_file_with_acl(src, dst, state, tid)
                     if success:
-                        state.files_copied += 1
-                        state.bytes_copied += size
+                        with state.stats_lock:
+                            state.files_copied += 1
+                            state.bytes_copied += size
                 elif action == "ACL":
                     success = apply_acl_only(src, dst, state)
 
@@ -378,11 +382,13 @@ def sync_worker(tid, state: SyncState, retries: int, delay: int):
                 # Ошибка 32 в Windows - файл занят
                 is_lock = False
                 if sys.platform == "win32":
-                    import pywintypes
                     if isinstance(e, pywintypes.error) and e.winerror == 32:
                         is_lock = True
+                if isinstance(e, (PermissionError, OSError)):
+                    if getattr(e, 'winerror', 0) == 32 or getattr(e, 'errno', 0) == 13:
+                        is_lock = True
 
-                if is_lock or "Permission denied" in str(e) or "being used by another process" in str(e):
+                if is_lock or "being used by another process" in str(e):
                     if attempt < retries:
                         state.update_thread(tid, status="[RTRY]")
                         state.add_event(f"[WARN] -> Лок файла {os.path.basename(src)} воркером {tid}. Ретрай {attempt}/{retries}...")
@@ -391,13 +397,16 @@ def sync_worker(tid, state: SyncState, retries: int, delay: int):
                         continue
                     else:
                         log_error(f"File locked after {retries} retries: {str(e)}", src)
-                        state.errors_count += 1
+                        with state.stats_lock:
+                            state.errors_count += 1
                 else:
                     log_error(f"Error processing file: {str(e)}", src)
-                    state.errors_count += 1
+                    with state.stats_lock:
+                        state.errors_count += 1
                     break
 
-        state.files_processed += 1
+        with state.stats_lock:
+            state.files_processed += 1
         state.update_thread(tid, status="IDLE", progress=0, path="", size=0, eta="--:--:--")
         state.copy_queue.task_done()
 
@@ -425,7 +434,8 @@ def phase_1_enumeration(source, dest, state: SyncState):
         if not os.path.exists(dest_root):
             try:
                 os.makedirs(dest_root, exist_ok=True)
-                state.dirs_copied += 1
+                with state.stats_lock:
+                    state.dirs_copied += 1
                 # Переносим ACL для папки
                 if WIN32_AVAILABLE:
                     sd = win32security.GetFileSecurity(root, win32security.DACL_SECURITY_INFORMATION)
@@ -433,7 +443,8 @@ def phase_1_enumeration(source, dest, state: SyncState):
             except Exception as e:
                 log_error(f"Failed to create directory: {str(e)}", dest_root)
         else:
-            state.dirs_skipped += 1
+            with state.stats_lock:
+                state.dirs_skipped += 1
 
         for file in files:
             if state.stop_event.is_set():
@@ -444,8 +455,9 @@ def phase_1_enumeration(source, dest, state: SyncState):
 
             try:
                 s_stat = os.stat(src_file)
-                state.files_total += 1
-                state.bytes_total += s_stat.st_size
+                with state.stats_lock:
+                    state.files_total += 1
+                    state.bytes_total += s_stat.st_size
 
                 if not os.path.exists(dst_file):
                     state.copy_queue.put(("COPY", src_file, dst_file, s_stat.st_size))
@@ -467,12 +479,14 @@ def phase_1_enumeration(source, dest, state: SyncState):
                         if acl_changed:
                             state.copy_queue.put(("ACL", src_file, dst_file, 0))
                         else:
-                            state.files_skipped += 1
-                            state.files_processed += 1
-                            state.bytes_skipped += s_stat.st_size
+                            with state.stats_lock:
+                                state.files_skipped += 1
+                                state.files_processed += 1
+                                state.bytes_skipped += s_stat.st_size
             except Exception as e:
                 log_error(f"Enumeration error: {str(e)}", src_file)
-                state.errors_count += 1
+                with state.stats_lock:
+                    state.errors_count += 1
 
     state.enumeration_complete.set()
 
@@ -500,12 +514,14 @@ def phase_2_cleanup(source, dest, state: SyncState):
                 try:
                     f_size = os.path.getsize(dst_file)
                     os.remove(dst_file)
-                    state.files_deleted += 1
-                    state.bytes_deleted += f_size
+                    with state.stats_lock:
+                        state.files_deleted += 1
+                        state.bytes_deleted += f_size
                     log_success("[DELETE_OK]", 0, f_size, dst_file)
                 except Exception as e:
                     log_error(f"Cleanup error (file): {str(e)}", dst_file)
-                    state.errors_count += 1
+                    with state.stats_lock:
+                        state.errors_count += 1
 
         # Удаляем папки
         for d in dirs:
@@ -515,11 +531,13 @@ def phase_2_cleanup(source, dest, state: SyncState):
             if not os.path.exists(src_dir):
                 try:
                     shutil.rmtree(dst_dir)
-                    state.dirs_deleted += 1
+                    with state.stats_lock:
+                        state.dirs_deleted += 1
                     log_success("[DELETE_OK]", 0, 0, dst_dir)
                 except Exception as e:
                     log_error(f"Cleanup error (dir): {str(e)}", dst_dir)
-                    state.errors_count += 1
+                    with state.stats_lock:
+                        state.errors_count += 1
 
 # ==========================================================================================
 # [8] ИНТЕРФЕЙС ПОЛЬЗОВАТЕЛЯ (TUI)
@@ -568,7 +586,7 @@ def get_progress_bar(percent, width=36):
     return f"[{bar}] {percent:5.1f}%"
 
 def render_active_ui(state: SyncState, source, dest):
-    os.system('cls' if sys.platform == 'win32' else 'clear')
+    clear_screen()
 
     print(f"{'='*27} [ PYTHON SMART SYNC V{VERSION} ] {'='*27}")
     print(f"Запуск:    {datetime.datetime.fromtimestamp(state.start_time).strftime('%d.%m.%Y %H:%M:%S')}")
@@ -629,7 +647,7 @@ def render_active_ui(state: SyncState, source, dest):
 
     spinners = ['/', '-', '\\', '|']
     with state.threads_lock:
-        for i in range(1, THREADS_COUNT + 1):
+        for i in range(1, state.threads_count + 1):
             tid = f"T{i}"
             info = state.threads_info.get(tid, {"status": "IDLE", "progress": 0, "size": 0, "eta": "--:--:--", "path": "", "spinner_idx": 0})
 
@@ -656,8 +674,15 @@ def render_active_ui(state: SyncState, source, dest):
         for event in state.recent_events:
             print(f" {event}")
 
+def clear_screen():
+    if colorama:
+        print(Style.RESET_ALL + "\033[2J\033[H", end="")
+    else:
+        os.system('cls' if sys.platform == 'win32' else 'clear')
+
 def render_final_ui(state: SyncState, source, dest):
-    os.system('cls' if sys.platform == 'win32' else 'clear')
+    clear_screen()
+    clear_screen()
     print(f"{'='*27} [ PYTHON SMART SYNC V{VERSION} ] {'='*27}")
     print(f"Запуск:    {datetime.datetime.fromtimestamp(state.start_time).strftime('%d.%m.%Y %H:%M:%S')}")
     print(f"Источник:  {source}")
@@ -746,6 +771,7 @@ def run_smart_sync(source: str, dest: str, threads: int = 16, retries: int = 3, 
         return {"status": "FAILED", "error": "Source not found"}
 
     state = SyncState()
+    state.threads_count = threads
     state.start_time = time.time()
 
     # 0. Инициализация и история
@@ -790,9 +816,14 @@ def run_smart_sync(source: str, dest: str, threads: int = 16, retries: int = 3, 
 
     # Дожидаемся завершения Фазы 1
     state.enumeration_complete.set()
+
+    # Посылаем ядовитые пилюли (sentinels) воркерам, чтобы они завершились
+    for _ in range(threads):
+        state.copy_queue.put(None)
+
     state.copy_queue.join()
     for t in worker_threads:
-        t.join(timeout=1)
+        t.join()
 
     # 4. Фаза 2: Очистка зеркала
     if not state.stop_event.is_set():
@@ -801,8 +832,8 @@ def run_smart_sync(source: str, dest: str, threads: int = 16, retries: int = 3, 
     state.end_time = time.time()
 
     # 5. Финальный UI и сохранение
-    save_history(state)
     render_final_ui(state, source, dest)
+    save_history(state)
 
     duration_str = str(datetime.timedelta(seconds=int(state.end_time - state.start_time)))
 
