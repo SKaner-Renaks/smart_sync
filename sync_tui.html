@@ -1,0 +1,227 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Python Smart Sync - TUI Engine v2.4 (16 Threads Scale)</title>
+    <style>
+        body {
+            background-color: #1e1e1e;
+            color: #d4d4d4;
+            font-family: 'Consolas', 'Lucida Console', 'Courier New', monospace;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+            box-sizing: border-box;
+        }
+
+        .terminal-window {
+            width: 1000px;
+            background-color: #0C0C0C;
+            border: 1px solid #3c3c3c;
+            border-radius: 6px;
+            box-shadow: 0 20px 50px rgba(0,0,0,0.6);
+            overflow: hidden;
+        }
+
+        .terminal-header {
+            background-color: #2d2d2d;
+            padding: 8px 12px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 1px solid #3c3c3c;
+            user-select: none;
+        }
+
+        .terminal-title {
+            font-size: 12px;
+            color: #aaaaaa;
+        }
+
+        .window-controls { display: flex; gap: 8px; }
+        .control-btn { width: 12px; height: 12px; border-radius: 50%; display: inline-block; }
+        .btn-close { background-color: #ff5f56; }
+        .btn-min { background-color: #ffbd2e; }
+        .btn-max { background-color: #27c93f; }
+
+        .terminal-body {
+            padding: 15px;
+            font-size: 14px;
+            line-height: 1.4;
+            white-space: pre; /* Жесткая сетка терминала */
+            color: #CCCCCC;
+        }
+
+        /* Цветовая палитра ANSI-состояний (СТРОГО без padding/margin) */
+        .c-green  { color: #00FF00; font-weight: bold; }
+        .c-cyan   { color: #00FFFF; font-weight: bold; }
+        .c-yellow { color: #FFFF00; font-weight: bold; }
+        .c-orange { color: #FF8000; font-weight: bold; }
+        .c-red    { color: #FF3333; font-weight: bold; }
+        .c-purple { color: #E066FF; font-weight: bold; }
+        .c-gray   { color: #555555; }
+        .c-white  { color: #FFFFFF; font-weight: bold; }
+
+        .inverse-cyan  { background-color: #00A2E8; color: #000; font-weight: bold; }
+        .inverse-warn  { background-color: #C19C00; color: #000; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div class="terminal-window">
+    <div class="terminal-header">
+        <div class="terminal-title">🟢 Administrator: cmd.exe - python sync_agent.py --threads 16</div>
+        <div class="window-controls">
+            <span class="control-btn btn-min"></span>
+            <span class="control-btn btn-max"></span>
+            <span class="control-btn btn-close"></span>
+        </div>
+    </div>
+    <div class="terminal-body" id="console"></div>
+</div>
+
+<script>
+    // Разнообразный пул тестовых путей и файлов (от мелких конфигов до огромных дисков)
+    const mockFiles = [
+        "C:\\Users\\Renaks\\Documents\\Projects\\vss_agent\\main.py",
+        "\\Ref_Data\\Building_3\\Apartments_Layout_Final.xlsx",
+        "\\Design\\Mucha_Style_Infographics_Backup.raw",
+        "\\Users\\Renaks\\AppData\\Local\\LM-Studio\\models\\Qwen2.5-7B-GGUF.bin",
+        "\\PVE_PBS_Migration\\subnet_192.168.87.x_routing.json",
+        "\\Ildar_Workspace\\Overtime_Calculations_2026_Q1.xlsx",
+        "\\Network_Audit\\PipeWire_NoMachine_Audio_Fix.log",
+        "\\Commercial_Proposals\\KP_Hardware_Supermicro_128GB.pdf",
+        "C:\\ClusterStorage\\Volume1\\Hyper-V\\srv-db-prod\\srv-db-prod.vhdx",
+        "\\Backup_Server\\pve-node1\\2026-05-22_vzdump-qemu-101.tar.zst",
+        "D:\\Shared_Folder\\Media\\Training_Videos\\Internal_Audit_2026_HD_Final.mkv",
+        "C:\\Windows\\System32\\drivers\\etc\\hosts",
+        "\\Samba_Share\\Public\\Incoming\\Unsorted\\Archive_Deep_Nested_Folder_Structure_Test.zip"
+    ];
+
+    let progress = 68.4;
+    let processedBytes = 1142.8;
+    const totalBytes = 2450.0;
+    let processedFiles = 48210;
+    const totalFiles = 84300;
+    
+    const spinnerFrames = ["/", "-", "\\", "|"];
+    let spinnerTick = 0;
+
+    // Массив из 16 параллельных потоков с различными состояниями
+    let threads = [
+        { id: 1,  status: "COPY", isActive: true,  pct: 45, size: 15.40,  unit: "GB", eta: "00:03:45", file: mockFiles[3] },
+        { id: 2,  status: "COPY", isActive: true,  pct: 89, size: 840.00, unit: "MB", eta: "00:00:04", file: mockFiles[1] },
+        { id: 3,  status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 4,  status: "RTRY", isActive: true,  pct: 5,  size: 1.20,   unit: "MB", eta: "--:--:--", file: mockFiles[5] },
+        { id: 5,  status: "COPY", isActive: true,  pct: 12, size: 142.50, unit: "GB", eta: "01:14:02", file: mockFiles[8] },
+        { id: 6,  status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 7,  status: "COPY", isActive: true,  pct: 63, size: 4.30,   unit: "GB", eta: "00:00:45", file: mockFiles[10] },
+        { id: 8,  status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 9,  status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 10, status: "COPY", isActive: true,  pct: 98, size: 12.60,  unit: "KB", eta: "00:00:01", file: mockFiles[11] },
+        { id: 11, status: "RTRY", isActive: true,  pct: 21, size: 450.70, unit: "MB", eta: "--:--:--", file: mockFiles[9] },
+        { id: 12, status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 13, status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 14, status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 15, status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" },
+        { id: 16, status: "IDLE", isActive: false, pct: 0,  size: 0.00,   unit: "KB", eta: "--:--:--", file: "" }
+    ];
+
+    let eventsLog = [
+        "19:12:40 <span class='c-purple'>[DROP]</span> -> D:\\Local_Backup\\...\\Old_Folder\\Trash.tmp",
+        "19:14:02 <span class='c-yellow'>[WARN]</span> -> Лок файла Overtime_Calculations_2026_Q1.xlsx воркером T4. Ретрай..."
+    ];
+
+    // Выделено под чистый путь целых 52 символа без сжатия остального контента
+    function truncatePath(path, maxLength = 52) {
+        if (!path) return "";
+        if (path.length <= maxLength) return path.padEnd(maxLength, ' ');
+        const partSize = Math.floor((maxLength - 7) / 2);
+        return path.substring(0, partSize) + " ... " + path.substring(path.length - partSize);
+    }
+
+    function generateProgressBar(pct, width = 35) {
+        const filledLength = Math.round(width * pct / 100);
+        const emptyLength = width - filledLength;
+        return "<span class='c-green'>[" + "█".repeat(filledLength) + "░".repeat(emptyLength) + "]</span>";
+    }
+
+    function updateTUI() {
+        spinnerTick++;
+        const currentSpinner = spinnerFrames[spinnerTick % spinnerFrames.length];
+
+        progress += 0.01;
+        if (progress > 100) progress = 68.4;
+        processedBytes += 0.12;
+
+        let currentSpeed = (124.8 + Math.sin(Date.now() / 4000) * 5).toFixed(1);
+
+        // Симуляция динамики некоторых воркеров
+        threads.forEach((t, i) => {
+            if (t.isActive) {
+                t.pct += (i % 2 === 0 ? 1 : 2);
+                if (t.pct > 100) {
+                    t.pct = 0;
+                    t.file = mockFiles[Math.floor(Math.random() * mockFiles.length)];
+                }
+            }
+        });
+
+        let out = "";
+        out += "<span class='c-gray'>===========================</span> <span class='c-white'>[ PYTHON SMART SYNC V1.0 ]</span> <span class='c-gray'>===========================</span>\n";
+        out += "<span class='c-white'>Запуск:   </span> <span class='c-gray'>23.05.2026 13:53:04</span>\n";
+        out += "<span class='c-white'>Источник: </span> <span class='c-cyan'>\\\\srv-fs01\\Company_Share</span>\n";
+        out += "<span class='c-white'>Цель:     </span> <span class='c-cyan'>D:\\Local_Backup\\Share_Mirror</span>\n";
+        out += "<span class='c-gray'>------------------------------------------------------------------------------------------</span>\n";
+        out += "<span class='c-white'>[ОБЩИЙ СТАТУС]:</span> <span class='c-green'>СИНХРОНИЗАЦИЯ ДАННЫХ...</span>\n";
+        out += `Прогресс: ${generateProgressBar(progress)} <span class='c-white'>${progress.toFixed(1)}%</span> <span class='c-gray'>(Память: OK)</span>\n`;
+        out += `Объем:    <span class='c-white'>${processedBytes.toFixed(1)} GB</span> / ${totalBytes.toFixed(1)} GB        | Скорость:   <span class='c-green'>[${currentSpeed} MB/s]</span> <span class='c-gray'>(Свободно: 1.2 TB)</span>\n`;
+        out += `Файлы:    Обработано: <span class='c-green'>${processedFiles.toLocaleString()}</span>         | Осталось:   ${(totalFiles - processedFiles).toLocaleString()}\n`;
+        out += `Тайминги: Прошло: <span class='c-cyan'>01:44:12</span>           | ETA (Оставшееся время): <span class='c-yellow'>00:48:30</span>\n`;
+        out += `Ошибки:   <span class='c-green'>[ 0 ]</span>                      | Пропущено (Ретраи): <span class='c-orange'>[ 4 ]</span>\n`;
+        out += "<span class='c-gray'>------------------------------------------------------------------------------------------</span>\n";
+        out += "<span class='c-white'>[АКТИВНЫЕ ПОТОКИ (THREADS)]:</span>\n";
+        
+        // Математически выверенная шапка. Сумма длин блоков до пути ровно равна 47 символам.
+        out += "<span class='c-gray'> №   Status  A  Progress  Size       ETA        Target file path</span>\n";
+
+        threads.forEach(t => {
+            // Формируем строгие блоки без тегов
+            let idStr = String('T' + t.id).padEnd(4, ' '); // "T1  " ... "T16 " (4 символа + 1 пробел в шаблоне = 5 знакомест)
+            let rawStatus = `[${t.status}]`;               // "[COPY]", "[IDLE]", "[RTRY]" (строго 6 символов)
+            let spinSymbol = t.isActive ? currentSpinner : "•"; // 1 символ
+            
+            let pctStr = t.status === "IDLE" ? " [--%]" : ` [${String(t.pct).padStart(3, ' ')}%]`; // 6 символов
+            let sizeStr = `${t.size.toFixed(2).padStart(6, ' ')} ${t.unit}`;                       // 9 символов
+            let etaStr = t.eta;                                                                   // 8 символов
+            let pathStr = t.status === "IDLE" ? "" : `D:\\Local_Backup\\${truncatePath(t.file, 52)}`;
+
+            // Стилизация состояний
+            let statusStyle = "";
+            if (t.status === "COPY") statusStyle = `<span class='inverse-cyan'>${rawStatus}</span>`;
+            else if (t.status === "IDLE") statusStyle = `<span class='c-gray'>${rawStatus}</span>`;
+            else if (t.status === "RTRY") statusStyle = `<span class='inverse-warn'>${rawStatus}</span>`;
+
+            let spinStyle = t.isActive ? `<span class='c-green'>${spinSymbol}</span>` : `<span class='c-gray'>${spinSymbol}</span>`;
+            let pctColor = t.status === "RTRY" ? "c-orange" : t.status === "IDLE" ? "c-gray" : "c-green";
+
+            // Сборка. Пробелы-разделители лежат вне span-тегов, гарантируя точность моноширинной сетки
+            out += ` <span class='c-gray'>${idStr}</span> ${statusStyle}  ${spinStyle}  <span class='${pctColor}'>${pctStr}</span>  <span class='c-white'>${sizeStr}</span>  <span class='c-cyan'>${etaStr}</span>   ${pathStr}\n`;
+        });
+        
+        out += "<span class='c-gray'>------------------------------------------------------------------------------------------</span>\n";
+        out += "<span class='c-white'>[ПОСЛЕДНИЕ СОБЫТИЯ]:</span>\n";
+        
+        eventsLog.forEach(ev => { out += " " + ev + "\n"; });
+
+        document.getElementById("console").innerHTML = out;
+    }
+
+    setInterval(updateTUI, 150);
+</script>
+
+</body>
+</html>
