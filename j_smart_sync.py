@@ -3,7 +3,7 @@
 
 """
 ==========================================================================================
-SMART_SYNC.PY (v1.0.0)
+J_SMART_SYNC.PY (v1.0.2)
 Зеркальная многопоточная синхронизация данных с сохранением ACL (Win32)
 ==========================================================================================
 """
@@ -51,7 +51,7 @@ if sys.platform == "win32":
 # [1] СТАТИЧЕСКАЯ КОНФИГУРАЦИЯ
 # ==========================================================================================
 
-VERSION = "1.0.0"
+VERSION = "1.0.2"
 SOURCE_PATH = r""  # Пример: r"\\srv-fs01\share"
 DEST_PATH = r""    # Пример: r"D:\Backup"
 THREADS_COUNT = 16
@@ -710,7 +710,7 @@ def render_final_ui(state: SyncState, source, dest):
     ram_max = state.ram_max / (1024*1024)
 
     print(f" Ресурсы узла:     Утилизация CPU:  Средняя: {cpu_avg:.1f}%   │ Пиковая (Max):       {cpu_max:.1f}%")
-    print(f" (процесс smart_sync) Занятость RAM:   Средняя: {int(ram_avg)} MB  │ Пиковая (Max):       {int(ram_max)} MB")
+    print(f" (процесс j_smart_sync) Занятость RAM:   Средняя: {int(ram_avg)} MB  │ Пиковая (Max):       {int(ram_max)} MB")
     print(" ────────────────────────────────────────────────────────────────────────────────────────")
 
     free_dest = "N/A"
@@ -860,7 +860,7 @@ def run_smart_sync(source: str, dest: str, threads: int = 16, retries: int = 3, 
 
 if __name__ == "__main__":
     import argparse
-    parser = argparse.ArgumentParser(description=f"Smart Sync v{VERSION}")
+    parser = argparse.ArgumentParser(description=f"J-Smart Sync v{VERSION}")
     parser.add_argument("--src", default=SOURCE_PATH, help="Source path")
     parser.add_argument("--dst", default=DEST_PATH, help="Destination path")
     parser.add_argument("--threads", type=int, default=THREADS_COUNT, help="Threads count")
