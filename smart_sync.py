@@ -1,6 +1,6 @@
 """
-PYTHON SMART SYNC V1.0.2
-High-performance mirror directory synchronization with ACL preservation.
+PYTHON SMART SYNC V1.0.3
+Высокопроизводительная зеркальная синхронизация каталогов с сохранением ACL.
 """
 
 import os
@@ -15,17 +15,17 @@ import traceback
 import collections
 from pathlib import Path
 
-# --- DEPENDENCIES CHECK ---
+# --- ПРОВЕРКА ЗАВИСИМОСТЕЙ ---
 try:
     import psutil
     from colorama import init, Fore, Back, Style
     init(autoreset=True)
 except ImportError as e:
-    print(f"Error: Missing dependency. {e}")
-    print("Please run: pip install -r requirements.txt")
+    print(f"Ошибка: Отсутствует зависимость. {e}")
+    print("Пожалуйста, выполните: pip install -r requirements.txt")
     sys.exit(1)
 
-# Windows-specific imports
+# Специфичные для Windows импорты
 WIN32_AVAILABLE = False
 if sys.platform == "win32":
     try:
@@ -40,50 +40,50 @@ if sys.platform == "win32":
 else:
     import os.path as ntpath
 
-# --- CONSTANTS ---
-VERSION = "1.0.2"
+# --- КОНСТАНТЫ ---
+VERSION = "1.0.3"
 SOURCE_PATH = r"\\192.168.88.3\Отдел продаж"
 DEST_PATH = r"D:\BackUp\Отдел продаж"
 THREADS_COUNT = 16
 MAX_RETRIES = 3
 RETRY_DELAY = 5
 
-# Administrative exclusion rules (case-insensitive)
+# Правила исключений (регистронезависимые)
 EXCLUDE_RULES = {
     "extensions": [".tmp", ".bak", ".lnk", ".old"],
     "prefixes": ["~$"],
     "patterns": ["Thumbs.db", "desktop.ini"]
 }
 
-# --- PATHS ---
+# --- ПУТИ ---
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 LOG_MAIN = os.path.join(BASE_DIR, "sync_main.log")
 LOG_ERRORS = os.path.join(BASE_DIR, "sync_errors.log")
 HISTORY_FILE = os.path.join(BASE_DIR, "sync_history.json")
 
-# --- COLOR PALETTE (ANSI) ---
-C_MAIN = "\033[37m"         # Light Gray
-C_WHITE = "\033[97m"        # White
-C_DARK = "\033[90m"         # Dark Gray
-C_GREEN = "\033[92m"        # Salat (Green)
-C_CYAN = "\033[96m"         # Biryuza (Cyan)
-C_YELLOW = "\033[93m"       # Limon (Yellow)
-C_RED = "\033[91m"          # Red
-C_PINK = "\033[95m"         # Pink
-C_ORANGE = "\033[38;5;208m" # Orange
-BG_CYAN = "\033[106;30m"    # [COPY] badge (Cyan BG, Black text)
-BG_ORANGE = "\033[48;5;208;30m" # [RTRY] badge (Orange BG, Black text)
-BG_GREEN = "\033[102;30m"   # Success status (Green BG, Black text)
+# --- ЦВЕТОВАЯ ПАЛИТРА (ANSI) ---
+C_MAIN = "\033[37m"         # Светло-серый
+C_WHITE = "\033[97m"        # Белый
+C_DARK = "\033[90m"         # Темно-серый
+C_GREEN = "\033[92m"        # Салатный (Зеленый)
+C_CYAN = "\033[96m"         # Бирюзовый (Циан)
+C_YELLOW = "\033[93m"       # Лимонный (Желтый)
+C_RED = "\033[91m"          # Красный
+C_PINK = "\033[95m"         # Розовый
+C_ORANGE = "\033[38;5;208m" # Оранжевый
+BG_CYAN = "\033[106;30m"    # Плашка [COPY] (Циан фон, Черный текст)
+BG_ORANGE = "\033[48;5;208;30m" # Плашка [RTRY] (Оранжевый фон, Черный текст)
+BG_GREEN = "\033[102;30m"   # Статус успеха (Зеленый фон, Черный текст)
 RESET = "\033[0m"
 
-# --- SYNC STATE ---
+# --- СОСТОЯНИЕ СИНХРОНИЗАЦИИ ---
 class SyncState:
     def __init__(self):
         self.start_time = time.time()
         self.end_time = None
         self.stop_event = threading.Event()
 
-        # Statistics
+        # Статистика
         self.files_processed = 0
         self.files_total = 0
         self.files_copied = 0
@@ -107,21 +107,21 @@ class SyncState:
 
         self.stats_lock = threading.Lock()
 
-        # Performance
+        # Производительность
         self.speed_history = collections.deque(maxlen=60)
         self.current_speed_counter = 0
         self.target_io_history = collections.deque(maxlen=60)
 
-        # Telemetry
+        # Телеметрия
         self.cpu_usage = []
         self.ram_usage = []
 
-        # Thread status
+        # Статус потоков
         self.thread_info = {} # tid -> {status, progress, size, eta, path, spinner_idx}
         for i in range(1, THREADS_COUNT + 1):
             self.thread_info[i] = {"status": "IDLE", "progress": 0, "size": 0, "eta": "--:--:--", "path": "", "spinner_idx": 0}
 
-        # History
+        # История
         self.history_data = self.load_history()
         self.is_first_run = not bool(self.history_data)
 
@@ -169,7 +169,7 @@ class SyncState:
         eta_seconds = remaining_bytes / avg_speed
         return str(datetime.timedelta(seconds=int(eta_seconds)))
 
-# --- HELPERS ---
+# --- ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ ---
 def format_size(bytes_num):
     if bytes_num == 0: return "0.00 KB"
     for unit in ['B', 'KB', 'MB', 'GB', 'TB']:
@@ -204,7 +204,7 @@ def get_relative_path(full_path, root_path):
     except:
         return full_path
 
-# --- LOGGING ---
+# --- ЛОГИРОВАНИЕ ---
 def log_main(msg, state, last_events):
     timestamp_full = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     timestamp_short = datetime.datetime.now().strftime("%H:%M:%S")
@@ -226,7 +226,7 @@ def log_error(code, desc, rel_path, state, last_events):
 
     last_events.append(f"{C_WHITE}{timestamp_short} {C_RED}[ERR]{C_WHITE} -> {code}: {desc} ({rel_path})")
 
-# --- ACL ENGINE ---
+# --- РАБОТА С ACL ---
 def apply_acl(src_path, dst_path):
     if not WIN32_AVAILABLE:
         return False
@@ -247,35 +247,36 @@ def compare_acls(src_path, dst_path):
     except:
         return False
 
-# --- TUI ENGINE ---
+# --- ДВИЖОК TUI ---
 def render_tui(state, last_events):
     sys.stdout.write("\033[H")
 
     width = 90
 
-    # 1. Header
+    # 1. Заголовок
     header_title = f" [ PYTHON SMART SYNC V{VERSION} ] "
     side_len = (width - len(header_title)) // 2
     header = "=" * side_len + header_title + "=" * (width - side_len - len(header_title))
     print(f"{C_DARK}{header}")
 
-    # 2. Session Info
+    # 2. Информация о сессии
     print(f"{C_WHITE}Запуск:    {C_MAIN}{datetime.datetime.fromtimestamp(state.start_time).strftime('%d.%m.%Y %H:%M:%S')}")
     print(f"{C_WHITE}Источник:  {C_CYAN}{SOURCE_PATH}")
     print(f"{C_WHITE}Цель:      {C_CYAN}{DEST_PATH}")
     print(f"{C_DARK}{'-'*width}")
 
-    # 3. Status
+    # 3. Статус
     if state.end_time:
         status_text = f"{BG_GREEN} СИНХРОНИЗАЦИЯ УСПЕШНО ЗАВЕРШЕНА {RESET}"
     else:
         status_text = f"{C_WHITE}СИНХРОНИЗАЦИЯ ДАННЫХ..."
     print(f"{C_WHITE}[ОБЩИЙ СТАТУС]: {status_text}")
 
-    # 4. Progress Bar / Info
+    # 4. Прогресс-бар / Инфо
     bar_width = 38
-    if state.is_first_run and state.bytes_total == 0 and not state.end_time:
-        print(f"{C_PINK}[ИНФО]: Первый запуск утилиты для данной пары каталогов. Данных о суммарном объеме нет.")
+    if state.is_first_run and not state.end_time:
+        msg = "[ИНФО]: Первый запуск утилиты для данной пары каталогов. Данных о суммарном объеме нет."
+        print(f"{C_PINK}{msg.center(width)}")
     else:
         if state.bytes_total > 0:
             percent = (state.bytes_processed / state.bytes_total * 100)
@@ -288,7 +289,7 @@ def render_tui(state, last_events):
         session_info = "(Сессия закрыта корректно)" if state.end_time else "(Память: OK)"
         print(f"{C_WHITE}Прогресс: [{bar_str}{C_WHITE}] {C_GREEN}{percent:5.1f}%{C_WHITE} {session_info}")
 
-    # 5. Stats
+    # 5. Статистика
     avg_speed_mb = (sum(state.speed_history) / len(state.speed_history)) / (1024*1024) if state.speed_history else 0
     speed_val_str = f"{avg_speed_mb:5.1f} MB/s"
 
@@ -302,7 +303,7 @@ def render_tui(state, last_events):
         free_str = "?.? TB"
 
     if not state.end_time:
-        if state.is_first_run and state.bytes_total == 0:
+        if state.is_first_run:
             vol_line = f"Объем:    {C_WHITE}{format_size_short(state.bytes_processed)} обработано           | Скорость:   {C_CYAN}[{speed_val_str}]{C_WHITE}"
             total_files_str = f"{C_DARK}[сбор данных...]{C_WHITE}"
             timing_line = f"Файлы:    Обработано: {state.files_processed:,} / {total_files_str} | Тайминги:   Прошло: {elapsed_str}"
@@ -314,11 +315,12 @@ def render_tui(state, last_events):
 
         print(f"{C_WHITE}{vol_line}")
         print(f"{C_WHITE}{timing_line}")
-        print(f"{C_WHITE}Ошибки:   [ {state.files_failed} ]                       | Пропущено:  [ {state.files_skipped + state.files_excluded} ]")
+        print(f"{C_WHITE}Ошибки:   [ {state.files_failed} ]                       | Пропущено (Ретраи):  [ {state.files_skipped} ]")
+        print(f"            | Исключено (Фильтр):  [ {state.files_excluded} ]")
 
         print(f"{C_DARK}{'-'*width}")
 
-        # 6. Active Threads
+        # 6. Активные потоки
         print(f"{C_WHITE}[АКТИВНЫЕ ПОТОКИ (THREADS)]:")
         print(f"{C_WHITE} №  Status  A  Progress   Size       ETA        Source relative file path")
         spinners = ['|', '/', '-', '\\']
@@ -328,11 +330,12 @@ def render_tui(state, last_events):
                 print(f"{C_MAIN} T{i:<2} {C_DARK}[IDLE]  •   [ --%]     0.00 KB  --:--:--   ")
             else:
                 status_clr = BG_CYAN if info["status"] == "COPY" else BG_ORANGE
+                spinner_color = C_YELLOW if info["status"] == "RTRY" else C_CYAN
                 spinner = spinners[info["spinner_idx"] % 4]
                 prog = f"[{info['progress']:3d}%]"
                 size = format_size(info["size"])
                 path = compress_path(info["path"], 45)
-                print(f"{C_MAIN} T{i:<2} {status_clr}[{info['status']}] {RESET}{C_CYAN}{spinner}{C_MAIN} | {C_WHITE}  {prog}  {size:>10}  {info['eta']}   {path}")
+                print(f"{C_MAIN} T{i:<2} {status_clr}[{info['status']}] {RESET}{spinner_color}{spinner}{C_MAIN} | {C_WHITE}  {prog}  {size:>10}  {info['eta']}   {path}")
 
         print(f"{C_DARK}{'-'*width}")
         print(f"{C_WHITE}[УПРАВЛЕНИЕ СЕССИЕЙ]: Для экстренной аварийной остановки нажмите {C_YELLOW}[F10]{C_WHITE} или {C_YELLOW}[Ctrl+C]{C_WHITE}")
@@ -340,7 +343,7 @@ def render_tui(state, last_events):
         for ev in last_events:
             print(f" {ev}")
     else:
-        # Final Report View
+        # Экран финального отчета
         print(f"{C_WHITE}[ТЕЛЕМЕТРИЯ СЕССИИ И ДИАГНОСТИКА СИСТЕМЫ]:")
         finish_time = datetime.datetime.fromtimestamp(state.end_time).strftime('%d.%m.%Y %H:%M:%S')
         print(f"{C_WHITE} Временные метки:  Завершение: {C_YELLOW}{finish_time}{C_WHITE}  │ Общее время работы:  {C_CYAN}{elapsed_str}")
@@ -403,7 +406,7 @@ def render_tui(state, last_events):
         print(f"{C_DARK}────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┘{C_WHITE}")
         print(f"\n Финальный статус: {C_GREEN}Зеркало обновлено. Ошибок ввода-вывода и деградации прав ACL не обнаружено.")
 
-# --- FILTERING ---
+# --- ФИЛЬТРАЦИЯ ---
 def is_excluded(filename):
     name_lower = filename.lower()
     for ext in EXCLUDE_RULES.get("extensions", []):
@@ -414,7 +417,7 @@ def is_excluded(filename):
         if name_lower == pat.lower(): return True
     return False
 
-# --- WORKER ---
+# --- ВОРКЕР ---
 def sync_worker(task_queue, state, tid, last_events):
     while not state.stop_event.is_set():
         try:
@@ -447,7 +450,7 @@ def process_task(src, dst, rel_path, size, state, tid, last_events):
                         log_main(f"[ACL_ONLY] | 0.00s | {format_size(size)} | {rel_path}", state, last_events)
                     else:
                         with state.stats_lock: state.files_failed += 1
-                        log_error("ACL_ERR", "Failed to apply security descriptor", rel_path, state, last_events)
+                        log_error("ACL_ERR", "Не удалось применить дескриптор безопасности", rel_path, state, last_events)
                 else:
                     with state.stats_lock: state.files_skipped += 1
                 with state.stats_lock:
@@ -477,7 +480,7 @@ def process_task(src, dst, rel_path, size, state, tid, last_events):
                         state.thread_info[tid]["progress"] = int(copied / size * 100) if size > 0 else 100
                         state.thread_info[tid]["spinner_idx"] += 1
 
-                        # Dynamic ETA for thread
+                        # Динамический ETA для потока
                         elapsed_thread = time.time() - start_time
                         if elapsed_thread > 1:
                             thread_speed = copied / elapsed_thread
@@ -515,7 +518,7 @@ def process_task(src, dst, rel_path, size, state, tid, last_events):
                     state.bytes_processed += size
     state.thread_info[tid]["status"] = "IDLE"
 
-# --- MAIN ENGINE ---
+# --- ОСНОВНОЙ ДВИЖОК ---
 def run_smart_sync():
     state = SyncState()
     task_queue = queue.Queue(maxsize=1000)
@@ -551,6 +554,7 @@ def run_smart_sync():
     tui_thread.start()
 
     source_items = set()
+    excluded_paths = set()
     try:
         if WIN32_AVAILABLE:
             kb_thread = threading.Thread(target=kb_listener, args=(state,), daemon=True)
@@ -558,8 +562,18 @@ def run_smart_sync():
 
         for root, dirs, files in os.walk(SOURCE_PATH):
             if state.stop_event.is_set(): break
-            dirs[:] = [d for d in dirs if not is_excluded(d)]
+
             rel_root = get_relative_path(root, SOURCE_PATH)
+
+            # Обработка исключаемых директорий
+            filtered_dirs = []
+            for d in dirs:
+                rel_d = ntpath.join(rel_root, d) if rel_root else d
+                if is_excluded(d):
+                    excluded_paths.add(rel_d.lower())
+                else:
+                    filtered_dirs.append(d)
+            dirs[:] = filtered_dirs
 
             for d in dirs:
                 rel_d = ntpath.join(rel_root, d) if rel_root else d
@@ -582,12 +596,14 @@ def run_smart_sync():
             for f in files:
                 if state.stop_event.is_set(): break
                 rel_f = ntpath.join(rel_root, f) if rel_root else f
-                source_items.add(rel_f.lower())
                 if is_excluded(f):
+                    excluded_paths.add(rel_f.lower())
                     with state.stats_lock:
                         state.files_excluded += 1
                         state.files_processed += 1
                     continue
+
+                source_items.add(rel_f.lower())
                 src_file = os.path.join(root, f)
                 dst_file = os.path.join(DEST_PATH, rel_f)
                 try:
@@ -605,13 +621,27 @@ def run_smart_sync():
             time.sleep(0.1)
 
         if not state.stop_event.is_set():
+            # Фаза 2: Очистка (Зеркалирование)
             for root, dirs, files in os.walk(DEST_PATH, topdown=False):
                 if state.stop_event.is_set(): break
                 rel_root = get_relative_path(root, DEST_PATH)
 
+                # Проверка, находится ли текущий путь внутри исключенного пути
+                is_path_excluded = False
+                temp_path = rel_root.lower()
+                while temp_path:
+                    if temp_path in excluded_paths:
+                        is_path_excluded = True
+                        break
+                    parent = ntpath.dirname(temp_path)
+                    if parent == temp_path: break
+                    temp_path = parent
+
+                if is_path_excluded: continue
+
                 for f in files:
                     rel_f = ntpath.join(rel_root, f) if rel_root else f
-                    if is_excluded(f): continue
+                    if rel_f.lower() in excluded_paths: continue
                     if rel_f.lower() not in source_items:
                         try:
                             os.remove(os.path.join(root, f))
@@ -621,7 +651,7 @@ def run_smart_sync():
 
                 for d in dirs:
                     rel_d = ntpath.join(rel_root, d) if rel_root else d
-                    if is_excluded(d): continue
+                    if rel_d.lower() in excluded_paths: continue
                     if rel_d.lower() not in source_items:
                         try:
                             shutil.rmtree(os.path.join(root, d))

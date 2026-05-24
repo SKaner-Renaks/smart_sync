@@ -1,15 +1,21 @@
-# History of Changes
+# Журнал изменений
 
 ## v1.0.1
-- Initial technical specification version.
-- Added streaming enumeration and dual-contour logging.
-- Implemented TUI for 90-character fixed width.
-- Added `/SECFIX` logic for mandatory ACL synchronization.
-- Implemented emergency break engine (Ctrl+C / F10).
+- Исходная версия согласно техническому заданию.
+- Добавлено потоковое перечисление и двухконтурное логирование.
+- Реализован TUI для фиксированной ширины 90 символов.
+- Добавлена логика `/SECFIX` для обязательной синхронизации ACL.
+- Реализован механизм экстренной остановки (Ctrl+C / F10).
 
-## v1.0.2 (Current)
-- Implemented the monolithic `smart_sync.py` script.
-- Added `EXCLUDE_RULES` administrative dictionary for file filtering.
-- Integrated `psutil` for CPU and RAM telemetry.
-- Implemented `sync_history.json` for session persistence.
-- Added `requirements.txt` and updated documentation.
+## v1.0.2
+- Реализован монолитный скрипт `smart_sync.py`.
+- Добавлен административный словарь `EXCLUDE_RULES` для фильтрации файлов.
+- Интегрирован `psutil` для телеметрии CPU и RAM.
+- Реализован файл `sync_history.json` для сохранения данных между сессиями.
+- Добавлен `requirements.txt` и обновлена документация.
+
+## v1.0.3
+- Исправлено отображение прогресс-бара при первом запуске (полное скрытие).
+- Разделены счётчики «Пропущено (Ретраи)» и «Исключено (Фильтр)» в активном UI.
+- Исправлен цвет спиннера для статуса RTRY (жёлтый).
+- Файлы документации и комментарии в коде переведены на русский язык.

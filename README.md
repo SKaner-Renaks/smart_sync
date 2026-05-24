@@ -1,31 +1,31 @@
-# Smart Sync Utility
+# Утилита Smart Sync
 
-High-performance, fault-tolerant Python script for mirror directory synchronization with ACL preservation.
+Высокопроизводительный, отказоустойчивый Python-скрипт для зеркальной синхронизации каталогов с сохранением прав доступа (ACL).
 
-## Features
-- **Multithreaded Copying:** Fast data transfer using a configurable worker pool.
-- **Mirror Mode:** Ensures the destination exactly matches the source, including deletions.
-- **ACL Synchronization (`/SECFIX`):** Updates security descriptors even if file content hasn't changed.
-- **Streaming Enumeration:** Starts copying immediately as files are found.
-- **Advanced TUI:** Real-time progress monitoring with a fixed 90-character width and ANSI colors.
-- **Administrative Exclusions:** Global filtering by extensions, prefixes, or exact filenames.
-- **Telemetry:** Tracks CPU, RAM, and I/O performance (min/avg/max).
-- **Emergency Break:** Instant stop using `Ctrl+C` or `F10`.
+## Особенности
+- **Многопоточное копирование:** Быстрая передача данных с использованием настраиваемого пула воркеров.
+- **Зеркальный режим:** Гарантирует полное соответствие целевого каталога источнику, включая удаление лишних объектов.
+- **Синхронизация ACL (`/SECFIX`):** Обновляет дескрипторы безопасности, даже если содержимое файла не изменилось.
+- **Потоковое перечисление:** Начинает копирование немедленно по мере обнаружения файлов.
+- **Продвинутый TUI:** Мониторинг прогресса в реальном времени с фиксированной шириной 90 символов и ANSI-цветами.
+- **Административные исключения:** Глобальная фильтрация по расширениям, префиксам или точным именам файлов.
+- **Телеметрия:** Отслеживание использования CPU, RAM и производительности ввода-вывода (min/avg/max).
+- **Экстренная остановка:** Мгновенное прекращение работы с помощью `Ctrl+C` или `F10`.
 
-## Installation
-Ensure Python 3.14+ is installed.
+## Установка
+Убедитесь, что установлен Python 3.14+.
 ```bash
 pip install -r requirements.txt
 ```
 
-## Usage
-Edit the constant block in `smart_sync.py` to set the `SOURCE_PATH` and `DEST_PATH`, then run:
+## Использование
+Отредактируйте блок констант в `smart_sync.py`, чтобы задать `SOURCE_PATH` и `DEST_PATH`, затем запустите:
 ```bash
 python smart_sync.py
 ```
 
-## Logs and History
-- `sync_main.log`: Successful copy/ACL/delete operations.
-- `sync_errors.log`: Critical errors and retry failures.
-- `sync_history.json`: Session metadata for progress tracking.
-- `history.md`: Project change log.
+## Журналы и история
+- `sync_main.log`: Успешные операции копирования/ACL/удаления.
+- `sync_errors.log`: Критические ошибки и неудачные попытки ретраев.
+- `sync_history.json`: Метаданные сессии для отслеживания прогресса.
+- `history.md`: Журнал изменений проекта.
