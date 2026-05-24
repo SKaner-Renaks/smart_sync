@@ -1,0 +1,390 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>Smart Sync TUI Visual Specifications</title>
+    <style>
+        body {
+            background-color: #1a1a1c;
+            color: #e0e0e0;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+            margin: 0;
+            padding: 40px 20px;
+        }
+        
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+        }
+
+        header {
+            margin-bottom: 40px;
+            border-bottom: 1px solid #333;
+            padding-bottom: 20px;
+        }
+
+        h1 {
+            font-size: 24pt;
+            color: #ffffff;
+            margin: 0 0 10px 0;
+            font-weight: 600;
+        }
+
+        .subtitle {
+            font-size: 11pt;
+            color: #8a8a8f;
+            margin: 0;
+        }
+
+        .section-title {
+            font-size: 14pt;
+            color: #00ffff;
+            margin: 40px 0 15px 0;
+            text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: bold;
+            border-left: 4px solid #00ffff;
+            padding-left: 10px;
+        }
+
+        .description {
+            font-size: 10.5pt;
+            color: #cccccc;
+            margin-bottom: 15px;
+            line-height: 1.5;
+        }
+
+        /* Terminal Window Container */
+        .terminal-window {
+            background-color: #0c0c0d;
+            border: 1px solid #333336;
+            border-radius: 6px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.5);
+            margin-bottom: 30px;
+            overflow: hidden;
+            width: 830px; /* Perfectly bounds 90 chars of monospace text */
+        }
+
+        /* Terminal Header (OS style) */
+        .terminal-header {
+            background-color: #1e1e1f;
+            padding: 10px 15px;
+            border-bottom: 1px solid #2d2d30;
+            display: block;
+            position: relative;
+        }
+
+        .terminal-buttons {
+            display: inline-block;
+            position: absolute;
+            left: 15px;
+            top: 13px;
+        }
+
+        .dot {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            display: inline-block;
+            margin-right: 6px;
+        }
+        .dot-close { background-color: #ff5f56; }
+        .dot-minimize { background-color: #ffbd2e; }
+        .dot-maximize { background-color: #27c93f; }
+
+        .terminal-title {
+            text-align: center;
+            font-size: 9pt;
+            color: #8a8a8f;
+            font-family: monospace;
+        }
+
+        /* Terminal Body */
+        .terminal-body {
+            padding: 15px;
+            margin: 0;
+            overflow-x: auto;
+        }
+
+        pre {
+            margin: 0;
+            font-family: 'Consolas', 'Courier New', monospace;
+            font-size: 10.5pt;
+            line-height: 1.35;
+            letter-spacing: 0px;
+            white-space: pre;
+            color: #cccccc; /* Default light gray */
+        }
+
+        /* ANSI Color Classes */
+        .c-main { color: #cccccc; }
+        .c-dark { color: #555555; }
+        .c-green { color: #00ff00; }
+        .c-cyan { color: #00ffff; }
+        .c-yellow { color: #ffff00; }
+        .c-red { color: #ff3333; }
+        .c-pink { color: #ff80ff; }
+        .c-orange { color: #ff8000; }
+
+        /* Inverted Badges */
+        .bg-cyan {
+            background-color: #00ffff;
+            color: #000000;
+            font-weight: bold;
+            padding: 0 2px;
+        }
+        
+        .bg-orange {
+            background-color: #ff8000;
+            color: #000000;
+            font-weight: bold;
+            padding: 0 2px;
+        }
+
+        .bg-green {
+            background-color: #00ff00;
+            color: #000000;
+            font-weight: bold;
+            padding: 0 4px;
+        }
+
+        .palette-grid {
+            display: block;
+            margin-top: 20px;
+            background: #222;
+            padding: 15px;
+            border-radius: 4px;
+        }
+        
+        .palette-item {
+            display: inline-block;
+            width: 18%;
+            margin-right: 1.5%;
+            margin-bottom: 10px;
+            font-size: 9pt;
+            vertical-align: top;
+        }
+        
+        .color-box {
+            height: 25px;
+            border-radius: 3px;
+            margin-bottom: 5px;
+            border: 1px solid #444;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>Спецификация Экранных Форм Smart Sync v1.0.1</h1>
+        <div class="subtitle">Интерактивный эталон верстки терминала (жесткая сетка 90 символов, ANSI палитра)</div>
+    </header>
+
+    <div class="description">
+        Ниже представлены три ключевых состояния консольного интерфейса, спроектированные в точном соответствии с требованиями ТЗ v1.0.1. Пути приводятся относительно корня сетевой шары (сам корень отсекается), сжатие строк выполняется через центральный маркер <code>... ...</code>, счетчики и спиннеры работают независимо для каждого запущенного потока.
+    </div>
+
+    <!-- 1. ZERO START -->
+    <div class="section-title">1. Сценарий: Zero_Start (Первый запуск, базы знаний нет)</div>
+    <div class="description">
+        Критическая особенность: общий прогресс-бар полностью скрыт. На его месте выводится розовое информационное сообщение. Общий счетчик файлов равен <code>Обработано / [сбор данных...]</code>.
+    </div>
+    
+    <div class="terminal-window">
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <span class="dot dot-close"></span>
+                <span class="dot dot-minimize"></span>
+                <span class="dot dot-maximize"></span>
+            </div>
+            <div class="terminal-title">smart_sync.py — python core_agent.py --mode=zero</div>
+        </div>
+        <div class="terminal-body">
+<pre><span class="c-dark">=========================== [ PYTHON SMART SYNC V1.0.1 ] =========================</span>
+Запуск:    23.05.2026 13:53:04
+Источник:  <span class="c-cyan">\192.168.88.3\Отдел продаж</span>
+Цель:      <span class="c-cyan">D:\BackUp\Отдел продаж</span>
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[ОБЩИЙ СТАТУС]: СИНХРОНИЗАЦИЯ ДАННЫХ...
+<span class="c-pink">[ИНФО]: Первый запуск утилиты для данной пары каталогов. Данных о суммарном объеме нет.</span>
+Объем:    12.4 GB обработано           | Скорость:   <span class="c-cyan">[114.2 MB/s]</span>
+Файлы:    Обработано: 412 / <span class="c-dark">[сбор данных...]</span> | Тайминги:   Прошло: 00:02:14
+Ошибки:   [ 0 ]                        | Пропущено:  [ 0 ]
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[АКТИВНЫЕ ПОТОКИ (THREADS)]:
+ №   Status  A  Progress  Size       ETA        Source relative file path
+ T1  <span class="bg-cyan">[COPY]</span>  <span class="c-cyan">/</span>   [ 45%]    1.40 GB  00:00:12   2026\Видео\... ...\Презентация.mp4
+ T2  <span class="bg-cyan">[COPY]</span>  <span class="c-cyan">-</span>   [ 89%]   12.40 MB  00:00:01   Текущие_документы\Спецификация.pdf
+ T3  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T4  <span class="bg-orange">[RTRY]</span>  <span class="c-yellow">\</span>   [  0%]     0.00 KB  --:--:--   Архив_2025\Отчет_Илдар.xlsx
+ T5  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T6  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T7  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T8  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T9  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T10 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T11 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T12 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T13 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T14 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T15 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T16 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[УПРАВЛЕНИЕ СЕССИЕЙ]: Для экстренной аварийной остановки нажмите <span class="c-yellow">[F10]</span> или <span class="c-yellow">[Ctrl+C]</span>
+[ПОСЛЕДНИЕ СОБЫТИЯ]:
+ 13:54:02 <span class="c-yellow">[WARN] -> Лок файла Отчет_Илдар.xlsx воркером T4. Попытка 1/3...</span></pre>
+        </div>
+    </div>
+
+
+    <!-- 2. NORMAL START -->
+    <div class="section-title">2. Сценарий: Normal_Start (Штатный запуск, история сессии считана)</div>
+    <div class="description">
+        Критическая особенность: на базе прошлого значения <code>Y</code> строятся точный шкальный прогресс-бар, счетчик и показатель ETA до полного завершения зеркалирования.
+    </div>
+    
+    <div class="terminal-window">
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <span class="dot dot-close"></span>
+                <span class="dot dot-minimize"></span>
+                <span class="dot dot-maximize"></span>
+            </div>
+            <div class="terminal-title">smart_sync.py — python core_agent.py --threads=16</div>
+        </div>
+        <div class="terminal-body">
+<pre><span class="c-dark">=========================== [ PYTHON SMART SYNC V1.0.1 ] =========================</span>
+Запуск:    23.05.2026 13:53:04
+Источник:  <span class="c-cyan">\192.168.88.3\Отдел продаж</span>
+Цель:      <span class="c-cyan">D:\BackUp\Отдел продаж</span>
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[ОБЩИЙ СТАТУС]: СИНХРОНИЗАЦИЯ ДАННЫХ...
+Прогресс: <span class="c-green">[████████████████████████░░░░░░░░░░] 68.4%</span> (Память: OK)
+Объем:    1142.8 GB / 2450.0 GB        | Скорость:   <span class="c-cyan">[124.8 MB/s]</span> (Свободно: 1.2 TB)
+Файлы:    Обработано: 48,210 / 84,300  | Тайминги:   Прошло: 01:44:12 | ETA: 00:48:30
+Ошибки:   [ 0 ]                        | Пропущено:  [ 4 ]
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[АКТИВНЫЕ ПОТОКИ (THREADS)]:
+ №   Status  A  Progress  Size       ETA        Source relative file path
+ T1  <span class="bg-cyan">[COPY]</span>  <span class="c-cyan">|</span>   [ 92%]  245.20 MB  00:00:02   2026\Договоры\... ...\План_Продаж.xlsx
+ T2  <span class="bg-cyan">[COPY]</span>  <span class="c-cyan">\</span>   [ 12%]    3.10 GB  00:01:15   Маркетинг\Презентации\... ...\Promo_2026.mkv
+ T3  <span class="bg-cyan">[COPY]</span>  <span class="c-cyan">/</span>   [ 54%]   89.10 MB  00:00:06   Аналитика\Регионы\... ...\Data_Summary.csv
+ T4  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T5  <span class="bg-cyan">[COPY]</span>  <span class="c-cyan">-</span>   [ 33%]  712.00 MB  00:00:22   Отдел_кадров\Резюме\... ...\Сводный_лист.xlsx
+ T6  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T7  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T8  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T9  <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T10 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T11 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T12 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T13 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T14 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T15 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+ T16 <span class="c-dark">[IDLE]  •   [ --%]     0.00 KB  --:--:--</span>   
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[УПРАВЛЕНИЕ СЕССИЕЙ]: Для экстренной аварийной остановки нажмите <span class="c-yellow">[F10]</span> или <span class="c-yellow">[Ctrl+C]</span>
+[ПОСЛЕДНИЕ СОБЫТИЯ]:
+ 15:36:12 [INFO] -> Успешно синхронизирован ACL для папки: Отдел продаж\Архив_2025</pre>
+        </div>
+    </div>
+
+
+    <!-- 3. FINAL SUMMARY -->
+    <div class="section-title">3. Сценарий: Final (Завершение работы, глубокая аналитика)</div>
+    <div class="description">
+        Критическая особенность: потоки скрыты. Добавлена телеметрия пиков ресурсов, результаты принудительного аудита дескрипторов <code>/SECFIX</code> (выделены фирменным оранжевым цветом) и двухконтурные скоростные маркеры (min/max).
+    </div>
+    
+    <div class="terminal-window">
+        <div class="terminal-header">
+            <div class="terminal-buttons">
+                <span class="dot dot-close"></span>
+                <span class="dot dot-minimize"></span>
+                <span class="dot dot-maximize"></span>
+            </div>
+            <div class="terminal-title">smart_sync.py — session report_dump</div>
+        </div>
+        <div class="terminal-body">
+<pre><span class="c-dark">=========================== [ PYTHON SMART SYNC V1.0.1 ] =========================</span>
+Запуск:    23.05.2026 13:53:04
+Источник:  <span class="c-cyan">\192.168.88.3\Отдел продаж</span>
+Цель:      <span class="c-cyan">D:\BackUp\Отдел продаж</span>
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[ОБЩИЙ СТАТУС]:  <span class="bg-green"> СИНХРОНИЗАЦИЯ УСПЕШНО ЗАВЕРШЕНА </span>
+Прогресс: <span class="c-green">[██████████████████████████████████████] 100.0%</span> (Сессия закрыта корректно)
+Объем:    2,450.0 GB / 2,450.0 GB       | Ошибки ввода-вывода:    <span class="c-green">[ 0 ]</span>
+Файлы:    Обработано: 84,300           | Пропущено (Ретраи):     <span class="c-yellow">[ 4 ]</span>
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[ТЕЛЕМЕТРИЯ СЕССИИ И ДИАГНОСТИКА СИСТЕМЫ]:
+
+ Временные метки:  Завершение: <span class="c-yellow">23.05.2026 16:08:38</span>  │ Общее время работы:  <span class="c-cyan">02:15:34</span>
+ Файлы журналов:   Лог сессии: <span class="c-yellow">C:\SmartSync\sync_main.log</span>
+                   Ошибки ACL: <span class="c-yellow">C:\SmartSync\sync_errors.log</span>
+ <span class="c-dark">────────────────────────────────────────────────────────────────────────────────────────</span>
+ Ресурсы узла:     Утилизация CPU:  Средняя: <span class="c-green">14.8%</span>   │ Пиковая (Max):       <span class="c-yellow">42.1%</span>
+                   Занятость RAM:   Средняя: <span class="c-green">184 MB</span>  │ Пиковая (Max):       <span class="c-yellow">342 MB</span>
+ <span class="c-dark">────────────────────────────────────────────────────────────────────────────────────────</span>
+ Целевой диск:     Доступное пространство на целевой машине: <span class="c-green">1.18 TB</span> (Том D:)
+ <span class="c-orange">Аудит прав ACL:   ИЗМЕНЕНО И СИНХРОНИЗИРОВАНО ПРАВ ДОСТУПА (ACL): [ 1,842 модификаций ]</span>
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[БЕНЧМАРК ПРОИЗВОДИТЕЛЬНОСТИ ПОДСИСТЕМ (IO SPEED)]:
+
+ Канал связи (Network SMB):  Минимум: <span class="c-red">42.1 MB/s</span>  │ Средняя: <span class="c-green">118.4 MB/s</span> │ Максимум: <span class="c-cyan">124.8 MB/s</span>
+ Локальный диск (Target IO):  Минимум: <span class="c-red">89.4 MB/s</span>  │ Средняя: <span class="c-green">234.1 MB/s</span> │ Максимум: <span class="c-cyan">512.0 MB/s</span>
+<span class="c-dark">------------------------------------------------------------------------------------------</span>
+[ФИНАЛЬНАЯ СТАТИСТИКА КАТАЛОГОВ (SUMMARY)]:
+
+<span class="c-dark">            │    Всего    │ Скопировано │  Пропущено  │   Ошибки    │   Удалено   │
+────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┤</span>
+ Директории │       1,420 │          12 │       1,408 │           0 │           3 │
+ Файлы      │      84,300 │      12,405 │      71,895 │           0 │          24 │
+ Байты      │     2.39 TB │   432.50 GB │     1.96 TB │     0.00 KB │     1.12 GB │
+<span class="c-dark">────────────┼─────────────┼─────────────┼─────────────┼─────────────┼─────────────┘</span>
+
+ Финальный статус: <span class="c-green">Зеркало обновлено. Ошибок ввода-вывода и деградации прав ACL не обнаружено.</span>
+ C:\SmartSync></pre>
+        </div>
+    </div>
+
+    <!-- PALETTE REFERENCES -->
+    <div class="section-title">Справочник используемой цветовой палитры</div>
+    <div class="palette-grid">
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #cccccc;"></div>
+            <b>#CCCCCC (Light Gray)</b><br><span class="c-dark">Основной текст, таблицы</span>
+        </div>
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #555555;"></div>
+            <b>#555555 (Dark Gray)</b><br><span class="c-dark">Разделители, неактивные потоки</span>
+        </div>
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #00ff00;"></div>
+            <b>#00FF00 (Bright Green)</b><br><span class="c-dark">Успех, 100%, статус OK</span>
+        </div>
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #00ffff;"></div>
+            <b>#00FFFF (Cyan)</b><br><span class="c-dark">Пути, пиковые скорости, копирование</span>
+        </div>
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #ffff00;"></div>
+            <b>#FFFF00 (Yellow)</b><br><span class="c-dark">Таймстампы, ретраи, логи</span>
+        </div>
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #ff3333;"></div>
+            <b>#FF3333 (Bright Red)</b><br><span class="c-dark">Падение скорости, критические алерты</span>
+        </div>
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #ff80ff;"></div>
+            <b>#FF80FF (Pink)</b><br><span class="c-dark">Информационные блоки ядра</span>
+        </div>
+        <div class="palette-item">
+            <div class="color-box" style="background-color: #ff8000;"></div>
+            <b>#FF8000 (Vibrant Orange)</b><br><span class="c-dark">Аудит прав ACL, ручные ретраи</span>
+        </div>
+    </div>
+</div>
+
+</body>
+</html>
